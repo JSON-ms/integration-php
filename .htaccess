@@ -1,12 +1,6 @@
-# Enable URL rewriting
 RewriteEngine On
 
-# Serve files directly if they exist
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^(.*)$ - [L]
-
-# Rewrite rule to fetch content from private/files/* when accessing files/*
-RewriteRule ^files/(.*)$ /private/files/$1 [L]
-
-# Redirect all other requests to index.php
-RewriteRule ^(.*)$ index.php [L]
+# Redirect all traffic to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]

@@ -76,7 +76,6 @@ function decrypt($encryptedData, $encryptionKey) {
 /**
  * CORS and HTTP Headers Configuration
  */
-
 // Define allowed origins for cross-origin requests
 $allowedOrigins = explode(',', $accessControlAllowOrigin);
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
@@ -88,8 +87,41 @@ if (in_array($origin, $allowedOrigins)) {
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Jms-Api-Key, X-Jms-Interface-Hash");
 header("Access-Control-Allow-Credentials: true");
-header('Content-Type: application/json');
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+
+// Handle file download
+$requestUri = $_SERVER['REQUEST_URI'];
+$uriPath = parse_url($requestUri, PHP_URL_PATH);
+$filePath = dirname(__FILE__) . '/private/files/' . basename($uriPath);
+if (is_file($filePath)) {
+    header("Access-Control-Allow-Origin: *");
+    $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    if ($isAjax) {
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . basename($filePath) . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($filePath));
+
+        $handle = fopen($filePath, 'rb');
+        if ($handle) {
+            while (!feof($handle)) {
+                echo fread($handle, 1024 * 64);
+                flush();
+            }
+            fclose($handle);
+        }
+        exit;
+    } else {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $filePath);
+        finfo_close($finfo);
+        header('Content-Type: ' . $mimeType);
+        readfile($filePath);
+        exit;
+    }
+}
 
 // Handle OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
@@ -114,8 +146,6 @@ if (!isset($headers['X-Jms-Api-Key'])) {
 /**
  * File Upload and Directory Setup
  */
-
-// Check if a file is being uploaded
 $hasFile = isset($_FILES['file']);
 $privatePath = dirname(__FILE__) . '/private/';
 $dataPath = $privatePath . 'data/';
@@ -151,8 +181,6 @@ if (!is_dir($uploadDir)) {
 /**
  * Handling GET Request: Retrieve JSON Data
  */
-
-// Handle GET request to fetch data
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     http_response_code(200);
     $dataFilePath = $dataPath . $_GET['hash'] . '.json';
@@ -176,8 +204,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 /**
  * Handling File Upload: POST Request
  */
-
-// Handle file upload with POST request
 else if ($hasFile && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Check if Interface hash is provided in the headers
